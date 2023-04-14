@@ -68,7 +68,7 @@ Config git's global settings
 
 ```sh
 git config --global user.name user
-git config --global user.email user.mail
+git config --global user.email user@email.com
 git config --global core.editor vim
 git config --global ui.color true
 git config --global init.defaultBranch main
@@ -224,12 +224,12 @@ git tag 0.1.0 HEAD -m "initial commit"
 git add . && git commit -m "docs: add changelog 0.1.0"
 git flow init
 git switch main
-git remote add origin git@github.com:alexcode-cc/Blog601.git
+git remote add origin git@github.com:alexcode-cc/Rails501.git
 git push -u origin --all
 git push -u origin --tags
 ```
 
-### Implement About page
+### Create about page for app info
 
 ```sh
 rails generate controller pages
@@ -643,6 +643,8 @@ def set_post
 end 
 ```
 
+Remove unused index pages
+
 ```sh
 rm app/views/posts/index.*
 vim app/views/posts/show.html.erb
@@ -824,8 +826,6 @@ vim app/controllers/posts_controller.rb
 before_action :authenticate_user!, only: %i[ new ]
 ```
 
-Add user navigation bar
-
 ```sh
 vim app/views/pages/about.html.erb
 ```
@@ -840,7 +840,10 @@ vim app/views/boards/index.html.erb
 
 ```rb
 | <%= link_to 'Home', root_path %>
+| <%= link_to 'Back', url_for(:back) %>
 ```
+
+Add user navigation bar
 
 ```sh
 mkdir app/views/shared
@@ -1096,7 +1099,143 @@ git tag 0.4.0 HEAD -m "use devise for user management"
 git push --all && git push --tags
 ```
 
-### Use Bootstrap for UI
+### Use Kaminari for paginate
+
+Setup kaminari
+
+```sh
+vim Gemfile
+```
+
+```rb
+# Use kaminari for paginate
+gem 'kaminari', '~> 1.2.2'
+```
+
+```sh
+bundle
+vim app/assets/stylesheets/kaminari.scss
+```
+
+```scss
+#paginate-bar span{
+    padding: 0 5px 0 5px !important;
+}
+```
+
+```sh
+rails generate kaminari:config
+vim config/initializers/kaminari_config.rb
+```
+
+```rb
+# frozen_string_literal: true
+
+Kaminari.configure do |config|
+  # config.default_per_page = 25
+  config.default_per_page = 5
+  # config.max_per_page = nil
+  # config.window = 4
+  # config.outer_window = 0
+  # config.left = 0
+  # config.right = 0
+  # config.page_method_name = :page
+  # config.param_name = :page
+  # config.max_pages = nil
+  # config.params_on_first_page = false
+end
+```
+
+```sh
+vim app/controller/boards_controller.rb
+```
+
+```rb
+def index
+  @boards = Board.all.page(params[:page])
+end
+```
+
+```sh
+vim app/views/boards/index.html.erb
+```
+
+```rb
+<br />
+<div id="paginate-bar">
+  <%= paginate @boards %>
+</div>
+```
+
+```sh
+vim db/seed.rb
+```
+
+```rb
+begin
+  user = User.create! :username => 'admin', :email => 'admin@rails501.org', :password => 'P@ssw0rd', :password_confirmation => 'P@ssw0rd'
+  20.times do |i|
+    Board.create(name: "Board ##{i+1}", user_id: 1)
+    2.times do |j|
+      Post.create(title: "Title for b#{i+1} p#{j+1}", content: "Content for board ##{i+1} post ##{j+1}", board_id: i+1)
+    end
+  end
+  puts "Seed success!"
+rescue
+  puts "Seed fail!"
+  puts Board.errors if Board.errors.any?
+  puts Post.errors if Post.errors.any?
+end   
+```
+
+```sh
+rails db:reset
+```
+
+Git commit and push
+
+```json
+"version": "0.5.0",
+```
+
+```sh
+git add . && git commit -m "feat: use kaminari for paginate"
+yarn changelog:check
+yarn changelog
+git add . && git commit -m "docs: update changelog to 0.5.0"
+git tag 0.5.0 HEAD -m "use kaminari for paginate"
+git push --all && git push --tags
+```
+
+### Use Bootstrap with webpack
+
+Use foreman
+
+```sh
+vim Gemfile
+```
+
+```rb
+# Use foreman for run server batch
+gem 'foreman', '~> 0.87.2'
+```
+
+```sh
+vim Procfile
+```
+
+```rb
+web: unset PORT && ./bin/rails server
+js: ./bin/webpack-dev-server
+```
+
+```sh
+vim run.sh
+```
+
+```bash
+foreman start
+```
 
 Setup bootstrap 5
 
@@ -1105,17 +1244,44 @@ yarn add bootstrap@5.2.3 jquery@3.6.4 popper.js@1.16.1 @popperjs/core@2.11.7
 ```
 
 ```sh
-vim app/assets/javascript/application.js
+vim config/webpack/environment.js
 ```
 
-```rb
-//= require jquery
-//= require bootstrap/dist/js/bootstrap.bundle.js
-//= require_tree .
+```js
+const { environment } = require('@rails/webpacker')
+
+const webpack = require('webpack')
+environment.plugins.prepend('Provide',
+  new webpack.ProvidePlugin({
+    $: 'jquery',
+    jQuery: 'jquery',
+    Popper: ['popper.js', 'default']
+  })
+)
+
+module.exports = environment
 ```
 
 ```sh
-vim app/assets/stylesheets/bootstrap.scss
+vim app/javascript/pack/application.js
+```
+
+```js
+import 'jquery'
+// import 'bootstrap'
+//import 'bootstrap/dist/js/bootstrap.bundle.js'
+
+console.log('Hello World from Webpacker')
+
+$().ready(function(){
+  console.log("jquery ready!")
+})
+
+```
+
+
+```sh
+vim app/assets/stylesheets/pack/bootstrap.scss
 ```
 
 ```scss
@@ -1158,11 +1324,9 @@ vim app/assets/stylesheets/bootstrap.scss
 .nav-logo:hover {
     background: #261B23;
 }
-
 ```
 
 ```sh
-mkdir app/views/shared
 mkdir public/images
 vim app/views/shared/_flash.html.erb
 ```
@@ -1271,128 +1435,17 @@ vim app/views/shared/_navbar.html.erb
 </div>
 ```
 
-Git commit and push
-
-```json
-"version": "0.5.0",
-```
-
 ```sh
-git add . && git commit -m "feat: use bootstrap 5 for ui"
-yarn changelog:check
-yarn changelog
-git add . && git commit -m "docs: update changelog to 0.5.0"
-git tag 0.5.0 HEAD -m "use bootstrap 5 for ui"
-git push --all && git push --tags
-```
-
-### Use Kaminari for paginate
-
-Disable test flashes 
-
-```sh
-vim app/controller/pages_controller.rb
+vim app/views/pages/about.html.erb
 ```
 
 ```rb
-def about
-  ...
-  #flash[:alert] = 'Hello Alert!'
-  #flash[:info] = 'Hello Info!'
-  #flash[:warning] = 'Hello Warning!'
-  #flash[:success] = 'Hello Success!'
-end
-```
-
-Setup kaminari
-
-```sh
-vim Gemfile
-```
-
-```rb
-# Use kaminari for paginate
-gem 'kaminari', '~> 1.2.2'
-```
-
-```sh
-bundle
-vim app/assets/stylesheets/bootstrap.scss
-```
-
-```scss
-#paginate-bar span{
-    padding: 0 5px 0 5px !important;
-}
-```
-
-```sh
-rails generate kaminari:config
-vim config/initializers/kaminari_config.rb
-```
-
-```rb
-# frozen_string_literal: true
-
-Kaminari.configure do |config|
-  # config.default_per_page = 25
-  config.default_per_page = 5
-  # config.max_per_page = nil
-  # config.window = 4
-  # config.outer_window = 0
-  # config.left = 0
-  # config.right = 0
-  # config.page_method_name = :page
-  # config.param_name = :page
-  # config.max_pages = nil
-  # config.params_on_first_page = false
-end
-```
-
-```sh
-vim app/controller/boards_controller.rb
-```
-
-```rb
-def index
-  @boards = Board.all.page(params[:page])
-end
-```
-
-```sh
-vim app/views/boards/index.html.erb
-```
-
-```rb
-<br />
-<div id="paginate-bar">
-  <%= paginate @boards %>
-</div>
-```
-
-```sh
-vim db/seed.rb
-```
-
-```rb
-begin
-  user = User.create! :username => 'admin', :email => 'admin@rails501.org', :password => 'P@ssw0rd', :password_confirmation => 'P@ssw0rd'
-  20.times do |i|
-    Board.create(name: "Board ##{i+1}", user_id: 1)
-    2.times do |j|
-      Post.create(title: "Title for b#{i+1} p#{j+1}", content: "Content for board ##{i+1} post ##{j+1}", board_id: i+1)
-    end
-  end
-  puts "Seed success!"
-rescue
-  puts "Seed fail!"
-  puts Board.errors if Board.errors.any?
-  puts Post.errors if Post.errors.any?
-end   
-```
-
-```sh
-rails db:reset
+<h1>Info</h1>
+<hr>
+  <table>
+...
+  </table>
+<hr>
 ```
 
 Git commit and push
@@ -1402,11 +1455,11 @@ Git commit and push
 ```
 
 ```sh
-git add . && git commit -m "feat: use kaminari for paginate"
+git add . && git commit -m "feat: use bootstrap 5 for ui"
 yarn changelog:check
 yarn changelog
 git add . && git commit -m "docs: update changelog to 0.6.0"
-git tag 0.6.0 HEAD -m "use kaminari for paginate"
+git tag 0.6.0 HEAD -m "use bootstrap 5 for ui"
 git push --all && git push --tags
 ```
 
@@ -1438,6 +1491,22 @@ chmod 600 ~/.ssh/authorized_keys
 mkdir -p /home/deploy5/rails501/shared/config
 exit
 exit
+```
+
+Disable test flashes
+
+```sh
+vim app/controller/pages_controller.rb
+```
+
+```rb
+def about
+  ...
+  #flash[:alert] = 'Hello Alert!'
+  #flash[:info] = 'Hello Info!'
+  #flash[:warning] = 'Hello Warning!'
+  #flash[:success] = 'Hello Success!'
+end
 ```
 
 ### Setup RVM for deploy environment
